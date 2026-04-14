@@ -1,18 +1,51 @@
-FROM indifferentbroccoli/windrose-server-docker:latest
+FROM debian:bookworm-slim
 
-USER root
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN id -u container >/dev/null 2>&1 || useradd -m -d /home/container -s /bin/bash container \
-    && mkdir -p /home/container \
-    && chown -R container:container /home/container \
-    && rm -rf /home/steam/server-files \
-    && ln -s /home/container /home/steam/server-files
+RUN dpkg --add-architecture i386 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bash \
+        ca-certificates \
+        curl \
+        unzip \
+        tar \
+        wget \
+        jq \
+        procps \
+        xvfb \
+        xauth \
+        wine \
+        wine32:i386 \
+        wine64 \
+    && rm -rf /var/lib/apt/lists/*
 
-ENV USER=container HOME=/home/container
+# Install .NET runtime for DepotDownloader
+RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
+    && chmod +x /tmp/dotnet-install.sh \
+    && /tmp/dotnet-install.sh --channel 8.0 --runtime dotnet --install-dir /usr/share/dotnet \
+    && ln -sf /usr/share/dotnet/dotnet /usr/bin/dotnet \
+    && rm -f /tmp/dotnet-install.sh
+
+# Install DepotDownloader
+ARG DEPOT_DOWNLOADER_VERSION=3.4.0
+RUN curl -fsSL \
+      "https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_${DEPOT_DOWNLOADER_VERSION}/DepotDownloader-linux-x64.zip" \
+      -o /tmp/depotdownloader.zip \
+    && mkdir -p /opt/depotdownloader \
+    && unzip /tmp/depotdownloader.zip -d /opt/depotdownloader \
+    && chmod +x /opt/depotdownloader/DepotDownloader \
+    && rm -f /tmp/depotdownloader.zip
+
+# Pterodactyl-required runtime user
+RUN useradd -m -d /home/container -s /bin/bash container
+
+USER container
+ENV USER=container
+ENV HOME=/home/container
 WORKDIR /home/container
 
-COPY entrypoint.sh /entrypoint.sh
+COPY --chown=container:container entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
-CMD []
+CMD ["/bin/bash", "/entrypoint.sh"]
