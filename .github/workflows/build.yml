@@ -2,7 +2,7 @@ name: build-and-push
 
 on:
   push:
-    branches: [main]
+    branches: [ "main" ]
   workflow_dispatch:
   schedule:
     - cron: "17 */6 * * *"
@@ -31,11 +31,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./Dockerfile
           push: true
-          platforms: linux/amd64
-          tags: ghcr.io/YOURUSER/windrose-ptero:latest
           pull: true
+          platforms: linux/amd64
+          tags: ghcr.io/mrshoff/windrose-pterodactyl-image:latest
